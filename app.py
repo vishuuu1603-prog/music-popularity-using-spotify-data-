@@ -2,18 +2,18 @@ import streamlit as st
 import pandas as pd
 import joblib
 
-# ----------------------------------
-# Page config
-# ----------------------------------
+# --------------------------------------------------
+# Page configuration
+# --------------------------------------------------
 st.set_page_config(
     page_title="Spotify Popularity Predictor",
     page_icon="🎵",
     layout="centered"
 )
 
-# ----------------------------------
-# Load trained artifacts
-# ----------------------------------
+# --------------------------------------------------
+# Load model artifacts
+# --------------------------------------------------
 @st.cache_resource
 def load_artifacts():
     return joblib.load("model_pipeline.pkl")
@@ -24,117 +24,170 @@ model = artifacts["model"]
 scaler = artifacts["scaler"]
 features = artifacts["features"]
 threshold = artifacts["threshold"]
-st.write(features)
-# ----------------------------------
+
+# --------------------------------------------------
 # Sidebar Navigation
-# ----------------------------------
+# --------------------------------------------------
 st.sidebar.title("🎵 Navigation")
 page = st.sidebar.radio(
     "Go to",
     ["🏠 Home", "🎯 Predict", "ℹ️ About"]
 )
 
-# ----------------------------------
-# HOME
-# ----------------------------------
+# --------------------------------------------------
+# HOME PAGE
+# --------------------------------------------------
 if page == "🏠 Home":
     st.title("🎧 Spotify Music Popularity Prediction")
 
     st.markdown("""
-    This app predicts whether a song is **POPULAR or NOT**
-    using a **Logistic Regression** model trained on Spotify audio features.
+    This application predicts whether a song is **POPULAR or NOT**
+    using a **machine learning classification model** trained on
+    Spotify track, artist, and audio features.
 
-    ### Target Variable
-    - `popular` → **1 = Popular**, **0 = Not Popular**
+    ### 🎯 Target
+    - `popular` → 1 (Popular)
+    - `popular` → 0 (Not Popular)
 
-    ### Model Logic
-    - Predicts probability
-    - Uses threshold **0.40** (same as training)
+    ### ⚙️ Model Logic
+    - Uses probability prediction
+    - Threshold-based classification
     """)
 
-# ----------------------------------
+# --------------------------------------------------
 # PREDICTION PAGE
-# ----------------------------------
+# --------------------------------------------------
 elif page == "🎯 Predict":
     st.title("🎯 Predict Song Popularity")
 
-    st.markdown("### 🎶 Enter Song Features")
+    # -------------------------------
+    # Track & Artist Features
+    # -------------------------------
+    st.subheader("🎵 Track & Artist Details")
 
-    col1, col2 = st.columns(2)
+    col0, col1, col2 = st.columns(3)
+
+    with col0:
+        track_number = st.number_input("Track Number", min_value=1, value=1)
+        track_popularity = st.slider("Track Popularity", 0, 100, 50)
+        explicit = st.selectbox("Explicit", [0, 1])
 
     with col1:
+        artist_popularity = st.slider("Artist Popularity", 0, 100, 50)
+        artist_followers = st.number_input(
+            "Artist Followers", min_value=0, value=10000
+        )
+        artist_name = st.number_input(
+            "Artist Name (Encoded ID)", min_value=0, value=0
+        )
+
+    with col2:
+        artist_genres = st.number_input(
+            "Artist Genres (Encoded ID)", min_value=0, value=0
+        )
+        track_name = st.number_input(
+            "Track Name (Encoded ID)", min_value=0, value=0
+        )
+        track_id = st.number_input(
+            "Track ID (Encoded ID)", min_value=0, value=0
+        )
+
+    # -------------------------------
+    # Audio Features
+    # -------------------------------
+    st.subheader("🎶 Audio Features")
+
+    col3, col4 = st.columns(2)
+
+    with col3:
         danceability = st.slider("Danceability", 0.0, 1.0, 0.5)
         energy = st.slider("Energy", 0.0, 1.0, 0.5)
         loudness = st.slider("Loudness (dB)", -60.0, 0.0, -10.0)
         speechiness = st.slider("Speechiness", 0.0, 1.0, 0.05)
         acousticness = st.slider("Acousticness", 0.0, 1.0, 0.3)
 
-    with col2:
+    with col4:
         instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
         liveness = st.slider("Liveness", 0.0, 1.0, 0.2)
         valence = st.slider("Valence", 0.0, 1.0, 0.5)
         tempo = st.number_input("Tempo (BPM)", 40.0, 250.0, 120.0)
-        duration_ms = st.number_input("Duration (ms)", 30000, 600000, 210000)
+        duration_ms = st.number_input(
+            "Duration (ms)", 30000, 600000, 210000
+        )
 
-    # Create input dataframe EXACTLY as training
-    input_df = pd.DataFrame([[
-        track_number,
-        track_popularity,
-        explicit,
-        artist_name,
-        artist_popularity,
-        artist_followers,
-        artist_genres,
-        track_name,
-        track_id 
-    ]], columns=features)
+    # -------------------------------
+    # Build input DataFrame (SAFE)
+    # -------------------------------
+    input_dict = {
+        "track_number": track_number,
+        "track_popularity": track_popularity,
+        "explicit": explicit,
+        "artist_name": artist_name,
+        "artist_popularity": artist_popularity,
+        "artist_followers": artist_followers,
+        "artist_genres": artist_genres,
+        "track_name": track_name,
+        "track_id": track_id,
+        "danceability": danceability,
+        "energy": energy,
+        "loudness": loudness,
+        "speechiness": speechiness,
+        "acousticness": acousticness,
+        "instrumentalness": instrumentalness,
+        "liveness": liveness,
+        "valence": valence,
+        "tempo": tempo,
+        "duration_ms": duration_ms
+    }
+
+    input_df = pd.DataFrame([input_dict])[features]
 
     st.markdown("---")
 
-    if st.button("🎯 Predict"):
+    # -------------------------------
+    # Prediction
+    # -------------------------------
+    if st.button("🎯 Predict Popularity"):
         scaled_input = scaler.transform(input_df)
 
-        # Predict probability (CORRECT)
-        prob = model.predict_proba(scaled_input)[0][1]
+        probability = model.predict_proba(scaled_input)[0][1]
+        prediction = int(probability > threshold)
 
-        prediction = int(prob > threshold)
+        st.subheader("📊 Prediction Result")
 
-        st.subheader("📊 Result")
-
-        st.write(f"**Popularity Probability:** `{prob:.2f}`")
-        st.write(f"**Threshold Used:** `{threshold}`")
+        st.write(f"**Popularity Probability:** `{probability:.2f}`")
+        st.write(f"**Threshold:** `{threshold}`")
 
         if prediction == 1:
             st.success("🔥 POPULAR SONG")
         else:
             st.warning("⚠️ NOT POPULAR")
 
-# ----------------------------------
-# ABOUT
-# ----------------------------------
+# --------------------------------------------------
+# ABOUT PAGE
+# --------------------------------------------------
 elif page == "ℹ️ About":
-    st.title("ℹ️ About")
+    st.title("ℹ️ About This Project")
 
     st.markdown("""
-    **Model**
-    - Logistic Regression
-    - Class-weight balanced
-    - Threshold-based classification
+    **Spotify Music Popularity Prediction App**
 
-    **Target**
-    - `popular` (binary)
-
-    **Built with**
+    ### 🔧 Tech Stack
     - Python
     - Scikit-learn
     - Streamlit
 
-    **Author**
-    - Vishva Patel
+    ### 📊 Model
+    - Classification model
+    - Uses scaled numerical + encoded features
+    - Threshold-based decision logic
+
+    ### 👨‍💻 Author
+    Vishva Patel
     """)
 
-# ----------------------------------
+# --------------------------------------------------
 # Footer
-# ----------------------------------
+# --------------------------------------------------
 st.markdown("---")
-st.caption("Spotify Popularity Prediction App")
+st.caption("Spotify Popularity Prediction | Streamlit App")
