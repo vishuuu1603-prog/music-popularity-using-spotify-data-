@@ -90,7 +90,8 @@ if st.button("🎯 Predict Popularity"):
 # --------------------------------
 st.markdown("---")
 st.caption("Built with ❤️ using Streamlit")
-st.write("Loaded object type:", type(model))
-st.write("Available attributes:", dir(model))
+st.write("Keys in pickle:", model.keys())
+st.stop()
+
 st.stop()
 
