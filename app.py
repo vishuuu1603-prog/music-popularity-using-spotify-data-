@@ -84,10 +84,8 @@ elif page == "🎯 Predict":
         speechiness,
         acousticness,
         instrumentalness,
-        liveness,
-        valence,
-        tempo,
-        duration_ms
+        liveness
+        
     ]], columns=features)
 
     st.markdown("---")
