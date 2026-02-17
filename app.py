@@ -84,7 +84,8 @@ elif page == "🎯 Predict":
         speechiness,
         acousticness,
         instrumentalness,
-        liveness
+        liveness,
+        duration_ms
         
     ]], columns=features)
 
