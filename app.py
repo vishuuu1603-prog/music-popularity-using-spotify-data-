@@ -24,7 +24,7 @@ model = artifacts["model"]
 scaler = artifacts["scaler"]
 features = artifacts["features"]
 threshold = artifacts["threshold"]
-
+st.write(features)
 # ----------------------------------
 # Sidebar Navigation
 # ----------------------------------
@@ -78,7 +78,16 @@ elif page == "🎯 Predict":
 
     # Create input dataframe EXACTLY as training
     input_df = pd.DataFrame([[
-      1,1,1,1,1,1,1,1,1,1
+        danceability,
+        energy,
+        loudness,
+        speechiness,
+        acousticness,
+        instrumentalness,
+        liveness,
+        valence,
+        tempo,
+        duration_ms
     ]], columns=features)
 
     st.markdown("---")
