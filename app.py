@@ -92,28 +92,7 @@ elif page == "🎯 Predict":
             "Track ID (Encoded ID)", min_value=0, value=0
         )
 
-    # -------------------------------
-    # Audio Features
-    # -------------------------------
-    st.subheader("🎶 Audio Features")
-
-    col3, col4 = st.columns(2)
-
-    with col3:
-        danceability = st.slider("Danceability", 0.0, 1.0, 0.5)
-        energy = st.slider("Energy", 0.0, 1.0, 0.5)
-        loudness = st.slider("Loudness (dB)", -60.0, 0.0, -10.0)
-        speechiness = st.slider("Speechiness", 0.0, 1.0, 0.05)
-        acousticness = st.slider("Acousticness", 0.0, 1.0, 0.3)
-
-    with col4:
-        instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
-        liveness = st.slider("Liveness", 0.0, 1.0, 0.2)
-        valence = st.slider("Valence", 0.0, 1.0, 0.5)
-        tempo = st.number_input("Tempo (BPM)", 40.0, 250.0, 120.0)
-        duration_ms = st.number_input(
-            "Duration (ms)", 30000, 600000, 210000
-        )
+  
 
     # -------------------------------
     # Build input DataFrame (SAFE)
@@ -128,16 +107,7 @@ elif page == "🎯 Predict":
         "artist_genres": artist_genres,
         "track_name": track_name,
         "track_id": track_id,
-        "danceability": danceability,
-        "energy": energy,
-        "loudness": loudness,
-        "speechiness": speechiness,
-        "acousticness": acousticness,
-        "instrumentalness": instrumentalness,
-        "liveness": liveness,
-        "valence": valence,
-        "tempo": tempo,
-        "duration_ms": duration_ms
+        
     }
 
     input_df = pd.DataFrame([input_dict])[features]
