@@ -78,15 +78,15 @@ elif page == "🎯 Predict":
 
     # Create input dataframe EXACTLY as training
     input_df = pd.DataFrame([[
-        danceability,
-        energy,
-        loudness,
-        speechiness,
-        acousticness,
-        instrumentalness,
-        liveness,
-        duration_ms
-        
+        track_number,
+        track_popularity,
+        explicit,
+        artist_name,
+        artist_popularity,
+        artist_followers,
+        artist_genres,
+        track_name,
+        track_id 
     ]], columns=features)
 
     st.markdown("---")
