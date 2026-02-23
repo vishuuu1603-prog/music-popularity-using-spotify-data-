@@ -144,10 +144,11 @@ elif page == "Prediction":
 
     # 🔧 Threshold control (KEY FOR NON‑POPULAR)
     # Force conservative decision
-    threshold = st.slider("Decision Threshold", 0.7, 0.95, 0.9)
+    threshold = st.slider(
+        "Decision Threshold (increase to get NOT‑POPULAR)",
+        0.1, 0.9, float(default_threshold)
+    )
 
-# Debug proof
-    st.write("Raw probability:", prob)
 
     if st.button("🚀 Predict"):
         input_dict = {
