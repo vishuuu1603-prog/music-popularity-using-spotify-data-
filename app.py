@@ -2,26 +2,20 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
-import matplotlib.pyplot as plt
 
 # ===============================
-# PAGE CONFIG + STYLING
+# PAGE CONFIG + STYLE
 # ===============================
 st.set_page_config(page_title="Spotify Popularity Predictor", layout="wide")
 
 st.markdown("""
 <style>
-body {
-    background-color: #ffffff;
-}
-.block-container {
-    padding: 2rem 3rem;
-}
+body { background-color: white; }
 .card {
     background: white;
-    border-radius: 12px;
+    border-radius: 15px;
     padding: 25px;
-    box-shadow: 0px 8px 20px rgba(0,0,0,0.12);
+    box-shadow: 0px 10px 25px rgba(0,0,0,0.15);
     margin-bottom: 25px;
 }
 </style>
@@ -36,81 +30,49 @@ with open("model_pipeline.pkl", "rb") as f:
 model = saved["model"]
 scaler = saved["scaler"]
 features = saved["features"]
-threshold = saved["threshold"]
+default_threshold = saved["threshold"]
 
 # ===============================
-# NAVIGATION BAR
+# NAV BAR
 # ===============================
 page = st.sidebar.radio(
     "Navigation",
-    ["Home", "Use Cases", "Model Insights", "Prediction", "About"]
+    ["Home", "Use Cases", "Prediction", "About"]
 )
 
 # ===============================
-# HOME PAGE
+# HOME
 # ===============================
 if page == "Home":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("🎵 Spotify Song Popularity Prediction System")
+    st.title("🎵 Spotify Song Popularity Prediction")
 
     st.write("""
-    This project predicts whether a Spotify track is **likely to become popular**
-    using **audio features and album metadata**.  
-    A machine learning model has been trained on real Spotify data to assist
-    artists, producers, and analysts in **data‑driven music decisions**.
-    """)
+    This system predicts whether a Spotify track is likely to become **popular**
+    using machine learning trained on real Spotify audio data.
 
-    st.subheader("🎯 Project Objectives")
-    st.write("""
-    - Analyze song audio characteristics  
-    - Predict popularity using machine learning  
-    - Support music industry decision‑making  
+    The prediction is **probability‑based**, not rule‑based.
     """)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# USE CASES PAGE
+# USE CASES
 # ===============================
 elif page == "Use Cases":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("📌 Applications of This Project")
+    st.title("📌 Use Cases")
 
     st.markdown("""
-    ### Who can use this system?
-    - 🎤 **Artists** – optimize tracks before release  
-    - 🎧 **Music Producers** – improve hit potential  
-    - 📊 **Music Analysts** – study popularity trends  
-    - 🏢 **Streaming Platforms** – recommendation insights  
-    - 🎼 **Record Labels** – A&R decision support  
-
-    ### Key Benefits
-    - Data‑driven predictions  
-    - Reduced guesswork in music releases  
-    - Better audience targeting  
+    - Artists optimizing songs before release  
+    - Producers evaluating hit potential  
+    - Music analytics & trend analysis  
+    - Streaming platform insights  
+    - Academic ML projects  
     """)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# MODEL INSIGHTS PAGE
-# ===============================
-elif page == "Model Insights":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("📈 Model Prediction Insights")
-
-    st.write("The chart below illustrates how prediction probability is interpreted.")
-
-    fig, ax = plt.subplots()
-    ax.bar(["Not Popular", "Popular"], [1-threshold, threshold], color=["#ff7675", "#55efc4"])
-    ax.set_ylabel("Decision Threshold")
-    ax.set_title("Model Decision Boundary")
-
-    st.pyplot(fig)
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ===============================
-# PREDICTION PAGE
+# PREDICTION
 # ===============================
 elif page == "Prediction":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -119,23 +81,29 @@ elif page == "Prediction":
     col1, col2 = st.columns(2)
 
     with col1:
-        danceability = st.slider("Danceability", 0.0, 1.0, 0.5)
-        energy = st.slider("Energy", 0.0, 1.0, 0.5)
-        loudness = st.slider("Loudness", -60.0, 0.0, -10.0)
-        speechiness = st.slider("Speechiness", 0.0, 1.0, 0.05)
-        acousticness = st.slider("Acousticness", 0.0, 1.0, 0.3)
-        tempo = st.number_input("Tempo (BPM)", 40.0, 250.0, 120.0)
+        danceability = st.slider("Danceability", 0.0, 1.0, 0.0)
+        energy = st.slider("Energy", 0.0, 1.0, 0.0)
+        loudness = st.slider("Loudness", -60.0, 0.0, -60.0)
+        speechiness = st.slider("Speechiness", 0.0, 1.0, 0.0)
+        acousticness = st.slider("Acousticness", 0.0, 1.0, 0.0)
+        tempo = st.number_input("Tempo", 40.0, 250.0, 40.0)
 
     with col2:
         instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
-        liveness = st.slider("Liveness", 0.0, 1.0, 0.2)
-        valence = st.slider("Valence", 0.0, 1.0, 0.5)
-        duration_ms = st.number_input("Duration (ms)", 30000, 600000, 210000)
+        liveness = st.slider("Liveness", 0.0, 1.0, 0.0)
+        valence = st.slider("Valence", 0.0, 1.0, 0.0)
+        duration_ms = st.number_input("Duration (ms)", 30000, 600000, 30000)
         album_type = st.selectbox("Album Type", ["album", "single"])
-        explicit = st.selectbox("Explicit Content", ["No", "Yes"])
+        explicit = st.selectbox("Explicit", ["No", "Yes"])
 
-    # 🔮 Predict Button
-    if st.button("🚀 Predict Popularity"):
+    # 🔧 Threshold tester
+    threshold = st.slider(
+        "Decision Threshold",
+        0.1, 0.9, float(default_threshold),
+        help="Lower = more POPULAR predictions"
+    )
+
+    if st.button("🚀 Predict"):
         input_dict = {
             "danceability": danceability,
             "energy": energy,
@@ -152,47 +120,44 @@ elif page == "Prediction":
             "explicit": 1 if explicit == "Yes" else 0
         }
 
-        input_df = pd.DataFrame([input_dict])
+        df = pd.DataFrame([input_dict])
 
-        # Ensure feature match
-        for col in features:
-            if col not in input_df.columns:
-                input_df[col] = 0
+        # Match training features
+        for f in features:
+            if f not in df.columns:
+                df[f] = 0
+        df = df[features]
 
-        input_df = input_df[features]
-        input_scaled = scaler.transform(input_df)
-
-        prob = model.predict_proba(input_scaled)[0][1]
+        X_scaled = scaler.transform(df)
+        prob = model.predict_proba(X_scaled)[0][1]
         pred = int(prob > threshold)
 
         st.subheader("📊 Prediction Result")
-        st.metric("Popularity Probability", f"{prob:.2f}")
+        st.progress(min(int(prob * 100), 100))
+        st.metric("Popularity Probability", f"{prob:.3f}")
 
         if pred == 1:
-            st.success("🔥 This song is likely to be POPULAR")
+            st.success("🔥 POPULAR (probability above threshold)")
         else:
-            st.warning("❄️ This song is likely to be NOT popular")
+            st.warning("❄️ NOT POPULAR (probability below threshold)")
+
+        st.caption(
+            f"Decision Rule: probability > {threshold} → Popular"
+        )
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# ABOUT PAGE
+# ABOUT
 # ===============================
 elif page == "About":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("ℹ️ About This Project")
+    st.title("ℹ️ About")
 
     st.write("""
-    This application was developed as a **machine learning project**
-    to demonstrate real‑world prediction using Spotify audio features.
+    This project demonstrates a **real‑world ML classification system**
+    using Logistic Regression, feature scaling, and probability thresholds.
 
-    **Core Highlights**
-    - Logistic Regression with class balancing  
-    - Feature scaling using StandardScaler  
-    - Threshold‑based probability decision  
-    - Fully deployed using Streamlit  
-
-    Designed for **academic, analytical, and professional use**.
+    Designed for **academic and professional analysis**.
     """)
-
     st.markdown("</div>", unsafe_allow_html=True)
