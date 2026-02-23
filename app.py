@@ -110,7 +110,14 @@ elif page == "🎯 Predict":
         
     }
 
-    input_df = pd.DataFrame([input_dict])[features]
+ input_df = pd.DataFrame([input_dict])
+
+missing = set(features) - set(input_df.columns)
+if missing:
+    st.error(f"Missing features: {missing}")
+    st.stop()
+
+input_df = input_df[features]
 
     st.markdown("---")
 
