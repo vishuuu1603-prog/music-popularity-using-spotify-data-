@@ -1,172 +1,92 @@
 import streamlit as st
 import pandas as pd
 import pickle
+import numpy as np
 
-# ======================================
-# PAGE CONFIG
-# ======================================
-st.set_page_config(
-    page_title="Spotify Song Popularity Predictor",
-    page_icon="🎵",
-    layout="centered"
-)
-
-# ======================================
+# ===============================
 # LOAD MODEL PIPELINE
-# ======================================
-@st.cache_resource
-def load_pipeline():
-    with open("model_pipeline.pkl", "rb") as f:
-        return pickle.load(f)
-
-saved = load_pipeline()
+# ===============================
+with open("model_pipeline.pkl", "rb") as f:
+    saved = pickle.load(f)
 
 model = saved["model"]
 scaler = saved["scaler"]
 features = saved["features"]
 threshold = saved["threshold"]
 
-# ======================================
-# SIDEBAR NAVIGATION
-# ======================================
-st.sidebar.title("🎵 Navigation")
-page = st.sidebar.radio(
-    "Go to",
-    ["🏠 Home", "🎯 Predict", "ℹ️ About"]
-)
+st.set_page_config(page_title="Spotify Popularity Predictor", layout="wide")
+st.title("🎵 Spotify Song Popularity Prediction")
 
-# ======================================
-# HOME PAGE
-# ======================================
-if page == "🏠 Home":
-    st.title("🎧 Spotify Song Popularity Prediction")
+st.write("Model expects these features:")
+st.code(features)
 
-    st.markdown("""
-    This app predicts whether a Spotify song will be **POPULAR (1)** or  
-    **NOT POPULAR (0)** using a **Logistic Regression model**.
+# ===============================
+# USER INPUTS (ONLY BASE FEATURES)
+# ===============================
+col1, col2 = st.columns(2)
 
-    ### 🔍 Model Details
-    - Target: `popular`
-    - Model: Logistic Regression (balanced)
-    - Threshold: **0.40**
-    - Scaled numeric features only
+with col1:
+    danceability = st.slider("Danceability", 0.0, 1.0, 0.5)
+    energy = st.slider("Energy", 0.0, 1.0, 0.5)
+    loudness = st.slider("Loudness", -60.0, 0.0, -10.0)
+    speechiness = st.slider("Speechiness", 0.0, 1.0, 0.05)
+    acousticness = st.slider("Acousticness", 0.0, 1.0, 0.3)
+    tempo = st.number_input("Tempo (BPM)", 40.0, 250.0, 120.0)
 
-    👉 Go to **Predict** to test a song.
-    """)
+with col2:
+    instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
+    liveness = st.slider("Liveness", 0.0, 1.0, 0.2)
+    valence = st.slider("Valence", 0.0, 1.0, 0.5)
+    duration_ms = st.number_input("Duration (ms)", 30000, 600000, 210000)
+    album_type = st.selectbox("Album Type", ["album", "single"])
+    explicit = st.selectbox("Explicit", ["No", "Yes"])
 
-# ======================================
-# PREDICTION PAGE
-# ======================================
-elif page == "🎯 Predict":
-    st.title("🎯 Predict Song Popularity")
+# ===============================
+# FEATURE ENGINEERING (EXACT TRAIN LOGIC)
+# ===============================
+input_dict = {
+    "danceability": danceability,
+    "energy": energy,
+    "loudness": loudness,
+    "speechiness": speechiness,
+    "acousticness": acousticness,
+    "instrumentalness": instrumentalness,
+    "liveness": liveness,
+    "valence": valence,
+    "tempo": tempo,
+    "duration_ms": duration_ms,
+    "track_duration_min": duration_ms / 60000,
+    "album_type": 1 if album_type == "single" else 0,
+    "explicit": 1 if explicit == "Yes" else 0
+}
 
-    st.markdown("### 🎵 Track & Album Details")
+# ===============================
+# BUILD INPUT DF SAFELY
+# ===============================
+input_df = pd.DataFrame([input_dict])
 
-    col1, col2, col3 = st.columns(3)
+# 🔥 Add any missing features with 0 (prevents KeyError)
+for col in features:
+    if col not in input_df.columns:
+        input_df[col] = 0
 
-    with col1:
-        track_number = st.number_input("Track Number", min_value=1, value=1)
-        explicit = st.selectbox("Explicit", ["No", "Yes"])
-        album_type = st.selectbox("Album Type", ["album", "single"])
+# 🔥 Remove extra columns
+input_df = input_df[features]
 
-    with col2:
-        album_total_tracks = st.number_input(
-            "Album Total Tracks", min_value=1, max_value=100, value=10
-        )
-        album_release_year = st.number_input(
-            "Album Release Year", min_value=1950, max_value=2026, value=2020
-        )
+# ===============================
+# SCALE + PREDICT
+# ===============================
+input_scaled = scaler.transform(input_df)
+prob = model.predict_proba(input_scaled)[0, 1]
+pred = int(prob > threshold)
 
-    with col3:
-        duration_ms = st.number_input(
-            "Track Duration (ms)", min_value=30000, max_value=600000, value=210000
-        )
+# ===============================
+# OUTPUT
+# ===============================
+st.subheader("Prediction Result")
+st.metric("Popularity Probability", f"{prob:.2f}")
 
-    st.markdown("### 🎶 Audio Features")
-
-    col4, col5 = st.columns(2)
-
-    with col4:
-        danceability = st.slider("Danceability", 0.0, 1.0, 0.5)
-        energy = st.slider("Energy", 0.0, 1.0, 0.5)
-        loudness = st.slider("Loudness (dB)", -60.0, 0.0, -10.0)
-        speechiness = st.slider("Speechiness", 0.0, 1.0, 0.05)
-        acousticness = st.slider("Acousticness", 0.0, 1.0, 0.3)
-
-    with col5:
-        instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
-        liveness = st.slider("Liveness", 0.0, 1.0, 0.2)
-        valence = st.slider("Valence", 0.0, 1.0, 0.5)
-        tempo = st.number_input("Tempo (BPM)", 40.0, 250.0, 120.0)
-
-    # ======================================
-    # FEATURE ENGINEERING (SAME AS TRAINING)
-    # ======================================
-    explicit_val = 1 if explicit == "Yes" else 0
-    album_type_val = 1 if album_type == "single" else 0
-    track_duration_min = duration_ms / 60000
-
-    input_dict = {
-        "track_number": track_number,
-        "explicit": explicit_val,
-        "album_type": album_type_val,
-        "album_total_tracks": album_total_tracks,
-        "album_release_year": album_release_year,
-        "track_duration_min": track_duration_min,
-        "danceability": danceability,
-        "energy": energy,
-        "loudness": loudness,
-        "speechiness": speechiness,
-        "acousticness": acousticness,
-        "instrumentalness": instrumentalness,
-        "liveness": liveness,
-        "valence": valence,
-        "tempo": tempo,
-    }
-
-    input_df = pd.DataFrame([input_dict])
-
-    # Ensure correct column order
-    input_df = input_df[features]
-
-    st.markdown("---")
-
-    # ======================================
-    # PREDICTION
-    # ======================================
-    if st.button("🎯 Predict Popularity"):
-        X_scaled = scaler.transform(input_df)
-        prob = model.predict_proba(X_scaled)[0][1]
-        prediction = int(prob > threshold)
-
-        st.subheader("📊 Prediction Result")
-        st.write(f"**Popularity Probability:** `{prob:.2f}`")
-        st.write(f"**Threshold Used:** `{threshold}`")
-
-        if prediction == 1:
-            st.success("🔥 POPULAR SONG")
-        else:
-            st.warning("⚠️ NOT POPULAR")
-
-# ======================================
-# ABOUT PAGE
-# ======================================
-elif page == "ℹ️ About":
-    st.title("ℹ️ About")
-
-    st.markdown("""
-    **Spotify Song Success Prediction**
-
-    - Logistic Regression (balanced)
-    - Scaled numeric features
-    - Threshold-based classification
-
-    **Target:** `popular`  
-    **Built with:** Python · Scikit-learn · Streamlit  
-    """)
-
-# ======================================
-# FOOTER
-# ======================================
-st.markdown("---")
-st.caption("Spotify Popularity Prediction App")
+if pred == 1:
+    st.success("🔥 Song is likely to be POPULAR")
+else:
+    st.warning("❄️ Song is likely to be NOT popular")
