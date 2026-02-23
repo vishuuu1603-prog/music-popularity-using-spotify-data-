@@ -143,8 +143,11 @@ elif page == "Prediction":
         explicit = st.selectbox("Explicit Content", ["No", "Yes"])
 
     # 🔧 Threshold control (KEY FOR NON‑POPULAR)
-    LogisticRegression(max_iter=2000, class_weight=None)
-    threshold = 0.5
+    # Force conservative decision
+    threshold = st.slider("Decision Threshold", 0.7, 0.95, 0.9)
+
+# Debug proof
+    st.write("Raw probability:", prob)
 
     if st.button("🚀 Predict"):
         input_dict = {
