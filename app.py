@@ -2,37 +2,46 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import pickle
+import matplotlib.pyplot as plt
+import seaborn as sns
+from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
 
 # ===============================
-# PAGE CONFIG + ADVANCED 3D STYLE
+# PAGE CONFIG
 # ===============================
-st.set_page_config(page_title="Spotify Popularity Predictor", layout="wide")
+st.set_page_config(
+    page_title="Spotify Song Success Intelligence",
+    layout="wide"
+)
 
+# ===============================
+# GREEN + 3D THEME
+# ===============================
 st.markdown("""
 <style>
 body {
-    background-color: #ffffff;
+    background-color: #0e1117;
+    color: white;
+}
+.main {
+    background: linear-gradient(135deg, #0f2027, #203a43, #2c5364);
+}
+h1, h2, h3 {
+    color: #1DB954;
 }
 .card {
-    background: linear-gradient(145deg, #ffffff, #f2f2f2);
-    border-radius: 18px;
-    padding: 28px;
-    box-shadow:
-        8px 8px 18px rgba(0,0,0,0.12),
-       -8px -8px 18px rgba(255,255,255,0.9);
-    margin-bottom: 30px;
-}
-div[data-testid="stMetric"] {
-    background: white;
-    padding: 18px;
-    border-radius: 14px;
-    box-shadow: 0px 6px 16px rgba(0,0,0,0.15);
+    background: rgba(255,255,255,0.08);
+    padding: 30px;
+    border-radius: 20px;
+    box-shadow: 0px 10px 25px rgba(0,0,0,0.4);
+    backdrop-filter: blur(12px);
+    margin-bottom: 25px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ===============================
-# LOAD MODEL
+# LOAD MODEL PIPELINE (CORRECT)
 # ===============================
 with open("model_pipeline.pkl", "rb") as f:
     saved = pickle.load(f)
@@ -43,86 +52,48 @@ features = saved["features"]
 default_threshold = saved["threshold"]
 
 # ===============================
-# NAVIGATION BAR
+# LOAD DATA (FOR CHARTS)
+# ===============================
+@st.cache_data
+def load_data():
+    return pd.read_csv("spotify_preprocessed_dataset.csv")
+
+df = load_data()
+
+# ===============================
+# NAVIGATION
 # ===============================
 page = st.sidebar.radio(
-    "Navigation",
-    ["Home", "Use Cases", "Charts", "Prediction", "About"]
+    "Navigate",
+    [
+        "Home",
+        "Song Popularity Prediction",
+        "Artist & Genre Analysis",
+        "Album Insights",
+        "Model Performance"
+    ]
 )
 
 # ===============================
-# HOME PAGE
+# HOME
 # ===============================
 if page == "Home":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("🎵 Spotify Song Popularity Prediction")
-
+    st.title("🎧 Spotify Song Success Intelligence Platform")
     st.write("""
-    This application predicts whether a Spotify track is likely to become **popular**
-    using a **probability‑based machine learning model** trained on real Spotify data.
+    A **machine‑learning based system** that predicts whether a song is likely to become popular  
+    using Spotify audio features and artist metadata.
 
-    The system evaluates **audio features and album metadata** and produces
-    interpretable, data‑driven predictions.
+    Predictions are **probability‑based**, not rule‑based.
     """)
-
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# USE CASES PAGE
+# PREDICTION PAGE (FIXED)
 # ===============================
-elif page == "Use Cases":
+elif page == "Song Popularity Prediction":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("📌 Use Cases")
-
-    st.markdown("""
-    - 🎤 Artists optimizing tracks before release  
-    - 🎧 Producers evaluating hit potential  
-    - 📊 Music analytics and trend analysis  
-    - 🏢 Streaming platform insights  
-    - 🎓 Academic and ML projects  
-    """)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ===============================
-# CHARTS PAGE (NEW)
-# ===============================
-elif page == "Charts":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("📊 Model Insights & Charts")
-
-    st.subheader("1️⃣ Popularity Decision Threshold")
-    st.progress(int(default_threshold * 100))
-    st.caption(f"Default model threshold = {default_threshold}")
-
-    st.subheader("2️⃣ Conceptual Feature Influence")
-    feature_df = pd.DataFrame({
-        "Feature Group": [
-            "Energy & Loudness",
-            "Danceability",
-            "Tempo & Duration",
-            "Acousticness",
-            "Instrumentalness"
-        ],
-        "Relative Influence": [85, 75, 65, 40, 30]
-    })
-    st.bar_chart(feature_df.set_index("Feature Group"))
-
-    st.subheader("3️⃣ Prediction Zones")
-    zone_df = pd.DataFrame({
-        "Probability": [0.0, default_threshold, 1.0],
-        "Zone": ["Non‑Popular", "Decision Boundary", "Popular"]
-    })
-    st.line_chart(zone_df.set_index("Zone"))
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ===============================
-# PREDICTION PAGE
-# ===============================
-elif page == "Prediction":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("🎯 Predict Song Popularity")
+    st.title("🎯 Song Popularity Prediction")
 
     col1, col2 = st.columns(2)
 
@@ -130,79 +101,97 @@ elif page == "Prediction":
         danceability = st.slider("Danceability", 0.0, 1.0, 0.0)
         energy = st.slider("Energy", 0.0, 1.0, 0.0)
         loudness = st.slider("Loudness", -60.0, 0.0, -60.0)
-        speechiness = st.slider("Speechiness", 0.0, 1.0, 0.0)
-        acousticness = st.slider("Acousticness", 0.0, 1.0, 0.0)
-        tempo = st.number_input("Tempo (BPM)", 40.0, 250.0, 40.0)
+        tempo = st.slider("Tempo", 40, 250, 40)
+        track_duration_min = st.slider("Track Duration (min)", 1.0, 10.0, 1.0)
 
     with col2:
-        instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
-        liveness = st.slider("Liveness", 0.0, 1.0, 0.0)
-        valence = st.slider("Valence", 0.0, 1.0, 0.0)
-        duration_ms = st.number_input("Duration (ms)", 30000, 600000, 30000)
+        artist_popularity = st.slider("Artist Popularity", 0, 100, 0)
+        artist_followers = st.number_input("Artist Followers", 0, value=0)
         album_type = st.selectbox("Album Type", ["album", "single"])
         explicit = st.selectbox("Explicit Content", ["No", "Yes"])
 
-    # 🔧 Threshold control (KEY FOR NON‑POPULAR)
-    # Force conservative decision
     threshold = st.slider(
-        "Decision Threshold (increase to get NOT‑POPULAR)",
-        0.1, 0.9, float(default_threshold)
+        "Decision Threshold (increase → NON‑POPULAR)",
+        0.4, 0.9, 0.8
     )
 
-
-    if st.button("🚀 Predict"):
+    if st.button("Predict Song Success"):
         input_dict = {
             "danceability": danceability,
             "energy": energy,
             "loudness": loudness,
-            "speechiness": speechiness,
-            "acousticness": acousticness,
-            "instrumentalness": instrumentalness,
-            "liveness": liveness,
-            "valence": valence,
             "tempo": tempo,
-            "duration_ms": duration_ms,
-            "track_duration_min": duration_ms / 60000,
+            "track_duration_min": track_duration_min,
+            "artist_popularity": artist_popularity,
+            "artist_followers": artist_followers,
             "album_type": 1 if album_type == "single" else 0,
             "explicit": 1 if explicit == "Yes" else 0
         }
 
-        df = pd.DataFrame([input_dict])
+        input_df = pd.DataFrame([input_dict])
 
+        # 🔑 CRITICAL: feature alignment
         for f in features:
-            if f not in df.columns:
-                df[f] = 0
-        df = df[features]
+            if f not in input_df.columns:
+                input_df[f] = 0
+        input_df = input_df[features]
 
-        X_scaled = scaler.transform(df)
+        X_scaled = scaler.transform(input_df)
         prob = model.predict_proba(X_scaled)[0][1]
         pred = int(prob > threshold)
 
-        st.subheader("📊 Prediction Result")
+        st.subheader("Prediction Result")
         st.progress(int(prob * 100))
-        st.metric("Popularity Probability", f"{prob:.3f}")
+        st.write(f"**Probability:** {prob:.3f}")
 
         if pred == 1:
-            st.success("🔥 POPULAR")
+            st.success("🔥 POPULAR SONG")
         else:
-            st.warning("❄️ NOT POPULAR")
+            st.error("❄️ NOT POPULAR SONG")
 
-        st.caption(f"Rule used: probability > {threshold}")
+        st.caption(f"Rule: probability > {threshold}")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# ABOUT PAGE
+# ARTIST & GENRE ANALYSIS
 # ===============================
-elif page == "About":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("ℹ️ About")
+elif page == "Artist & Genre Analysis":
+    st.title("Artist & Genre Analysis")
 
-    st.write("""
-    This project demonstrates a **real‑world machine learning classification system**
-    using Logistic Regression, feature scaling, and probability‑based decision making.
+    top_genres = df.groupby("artist_genres")["track_popularity"].mean().sort_values(ascending=False).head(10)
+    st.bar_chart(top_genres)
 
-    The model is optimized for **imbalanced Spotify data** and prioritizes recall.
-    """)
+# ===============================
+# ALBUM INSIGHTS
+# ===============================
+elif page == "Album Insights":
+    st.title("Album Insights")
 
-    st.markdown("</div>", unsafe_allow_html=True)
+    fig, ax = plt.subplots()
+    sns.boxplot(x="album_type", y="track_popularity", data=df, ax=ax)
+    st.pyplot(fig)
+
+# ===============================
+# MODEL PERFORMANCE
+# ===============================
+elif page == "Model Performance":
+    st.title("Model Performance")
+
+    X = df[features].copy()
+    X["album_type"] = (X["album_type"] == "single").astype(int)
+    X["explicit"] = (X["explicit"] == True).astype(int)
+
+    X_scaled = scaler.transform(X)
+    y = df["popular"]
+    y_pred = (model.predict_proba(X_scaled)[:, 1] > default_threshold).astype(int)
+
+    cm = confusion_matrix(y, y_pred)
+    fig, ax = plt.subplots()
+    sns.heatmap(cm, annot=True, fmt="d", cmap="Greens", ax=ax)
+    st.pyplot(fig)
+
+    st.write(f"Accuracy: {accuracy_score(y, y_pred):.2f}")
+    st.write(f"Precision: {precision_score(y, y_pred):.2f}")
+    st.write(f"Recall: {recall_score(y, y_pred):.2f}")
+    st.write(f"F1 Score: {f1_score(y, y_pred):.2f}")
