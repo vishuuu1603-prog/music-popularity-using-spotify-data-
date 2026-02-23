@@ -4,19 +4,29 @@ import numpy as np
 import pickle
 
 # ===============================
-# PAGE CONFIG + STYLE
+# PAGE CONFIG + ADVANCED 3D STYLE
 # ===============================
 st.set_page_config(page_title="Spotify Popularity Predictor", layout="wide")
 
 st.markdown("""
 <style>
-body { background-color: white; }
+body {
+    background-color: #ffffff;
+}
 .card {
+    background: linear-gradient(145deg, #ffffff, #f2f2f2);
+    border-radius: 18px;
+    padding: 28px;
+    box-shadow:
+        8px 8px 18px rgba(0,0,0,0.12),
+       -8px -8px 18px rgba(255,255,255,0.9);
+    margin-bottom: 30px;
+}
+div[data-testid="stMetric"] {
     background: white;
-    border-radius: 15px;
-    padding: 25px;
-    box-shadow: 0px 10px 25px rgba(0,0,0,0.15);
-    margin-bottom: 25px;
+    padding: 18px;
+    border-radius: 14px;
+    box-shadow: 0px 6px 16px rgba(0,0,0,0.15);
 }
 </style>
 """, unsafe_allow_html=True)
@@ -33,46 +43,82 @@ features = saved["features"]
 default_threshold = saved["threshold"]
 
 # ===============================
-# NAV BAR
+# NAVIGATION BAR
 # ===============================
 page = st.sidebar.radio(
     "Navigation",
-    ["Home", "Use Cases", "Prediction", "About"]
+    ["Home", "Use Cases", "Charts", "Prediction", "About"]
 )
 
 # ===============================
-# HOME
+# HOME PAGE
 # ===============================
 if page == "Home":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.title("🎵 Spotify Song Popularity Prediction")
 
     st.write("""
-    This system predicts whether a Spotify track is likely to become **popular**
-    using machine learning trained on real Spotify audio data.
+    This application predicts whether a Spotify track is likely to become **popular**
+    using a **probability‑based machine learning model** trained on real Spotify data.
 
-    The prediction is **probability‑based**, not rule‑based.
+    The system evaluates **audio features and album metadata** and produces
+    interpretable, data‑driven predictions.
     """)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# USE CASES
+# USE CASES PAGE
 # ===============================
 elif page == "Use Cases":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.title("📌 Use Cases")
 
     st.markdown("""
-    - Artists optimizing songs before release  
-    - Producers evaluating hit potential  
-    - Music analytics & trend analysis  
-    - Streaming platform insights  
-    - Academic ML projects  
+    - 🎤 Artists optimizing tracks before release  
+    - 🎧 Producers evaluating hit potential  
+    - 📊 Music analytics and trend analysis  
+    - 🏢 Streaming platform insights  
+    - 🎓 Academic and ML projects  
     """)
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# PREDICTION
+# CHARTS PAGE (NEW)
+# ===============================
+elif page == "Charts":
+    st.markdown("<div class='card'>", unsafe_allow_html=True)
+    st.title("📊 Model Insights & Charts")
+
+    st.subheader("1️⃣ Popularity Decision Threshold")
+    st.progress(int(default_threshold * 100))
+    st.caption(f"Default model threshold = {default_threshold}")
+
+    st.subheader("2️⃣ Conceptual Feature Influence")
+    feature_df = pd.DataFrame({
+        "Feature Group": [
+            "Energy & Loudness",
+            "Danceability",
+            "Tempo & Duration",
+            "Acousticness",
+            "Instrumentalness"
+        ],
+        "Relative Influence": [85, 75, 65, 40, 30]
+    })
+    st.bar_chart(feature_df.set_index("Feature Group"))
+
+    st.subheader("3️⃣ Prediction Zones")
+    zone_df = pd.DataFrame({
+        "Probability": [0.0, default_threshold, 1.0],
+        "Zone": ["Non‑Popular", "Decision Boundary", "Popular"]
+    })
+    st.line_chart(zone_df.set_index("Zone"))
+
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# ===============================
+# PREDICTION PAGE
 # ===============================
 elif page == "Prediction":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
@@ -86,7 +132,7 @@ elif page == "Prediction":
         loudness = st.slider("Loudness", -60.0, 0.0, -60.0)
         speechiness = st.slider("Speechiness", 0.0, 1.0, 0.0)
         acousticness = st.slider("Acousticness", 0.0, 1.0, 0.0)
-        tempo = st.number_input("Tempo", 40.0, 250.0, 40.0)
+        tempo = st.number_input("Tempo (BPM)", 40.0, 250.0, 40.0)
 
     with col2:
         instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.0)
@@ -94,13 +140,12 @@ elif page == "Prediction":
         valence = st.slider("Valence", 0.0, 1.0, 0.0)
         duration_ms = st.number_input("Duration (ms)", 30000, 600000, 30000)
         album_type = st.selectbox("Album Type", ["album", "single"])
-        explicit = st.selectbox("Explicit", ["No", "Yes"])
+        explicit = st.selectbox("Explicit Content", ["No", "Yes"])
 
-    # 🔧 Threshold tester
+    # 🔧 Threshold control (KEY FOR NON‑POPULAR)
     threshold = st.slider(
-        "Decision Threshold",
-        0.1, 0.9, float(default_threshold),
-        help="Lower = more POPULAR predictions"
+        "Decision Threshold (increase to get NOT‑POPULAR)",
+        0.1, 0.9, float(default_threshold)
     )
 
     if st.button("🚀 Predict"):
@@ -122,7 +167,6 @@ elif page == "Prediction":
 
         df = pd.DataFrame([input_dict])
 
-        # Match training features
         for f in features:
             if f not in df.columns:
                 df[f] = 0
@@ -133,31 +177,30 @@ elif page == "Prediction":
         pred = int(prob > threshold)
 
         st.subheader("📊 Prediction Result")
-        st.progress(min(int(prob * 100), 100))
+        st.progress(int(prob * 100))
         st.metric("Popularity Probability", f"{prob:.3f}")
 
         if pred == 1:
-            st.success("🔥 POPULAR (probability above threshold)")
+            st.success("🔥 POPULAR")
         else:
-            st.warning("❄️ NOT POPULAR (probability below threshold)")
+            st.warning("❄️ NOT POPULAR")
 
-        st.caption(
-            f"Decision Rule: probability > {threshold} → Popular"
-        )
+        st.caption(f"Rule used: probability > {threshold}")
 
     st.markdown("</div>", unsafe_allow_html=True)
 
 # ===============================
-# ABOUT
+# ABOUT PAGE
 # ===============================
 elif page == "About":
     st.markdown("<div class='card'>", unsafe_allow_html=True)
     st.title("ℹ️ About")
 
     st.write("""
-    This project demonstrates a **real‑world ML classification system**
-    using Logistic Regression, feature scaling, and probability thresholds.
+    This project demonstrates a **real‑world machine learning classification system**
+    using Logistic Regression, feature scaling, and probability‑based decision making.
 
-    Designed for **academic and professional analysis**.
+    The model is optimized for **imbalanced Spotify data** and prioritizes recall.
     """)
+
     st.markdown("</div>", unsafe_allow_html=True)
