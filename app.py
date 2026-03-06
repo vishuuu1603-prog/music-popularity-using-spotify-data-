@@ -137,19 +137,55 @@ elif selected == "Analysis":
 elif selected == "Dashboard":
     st.title("📊 Global Dashboard")
     if df is not None:
+        # Metrics with custom styling
+        m1, m2, m3 = st.columns(3)
+        m1.metric("Tracks in Database", len(df))
+        m2.metric("Artist Avg Popularity", f"{df['artist_popularity'].mean():.1f}")
+        m3.metric("Popularity %", f"{(df['popular'].mean()*100):.1f}%")
+
+        st.markdown("---")
+        
         col1, col2 = st.columns(2)
         with col1:
-            # CHART 3: Pie Chart
-            fig3 = px.pie(df, names='popular', title="Chart 3: Dataset Popularity Split",
-                         color_discrete_sequence=['#191414', '#1DB954'], hole=0.5)
+            # --- CHART 3: Pie Chart (Updated Background) ---
+            fig3 = px.pie(
+                df, 
+                names='popular', 
+                title="<b>Chart 3: Dataset Popularity Split</b>",
+                hole=0.5, 
+                color_discrete_sequence=['#1DB954', '#191414'],
+                labels={'popular': 'Popularity Status'}
+            )
+            
+            # Force White Background and Black Text
+            fig3.update_layout(
+                paper_bgcolor="white",
+                plot_bgcolor="white",
+                font_color="black",
+                legend=dict(font=dict(color="black")),
+                title_font=dict(size=20, color="black")
+            )
             st.plotly_chart(fig3, use_container_width=True)
+        
         with col2:
-            # CHART 4: Scatter Plot
-            fig4 = px.scatter(df.sample(1000), x="artist_popularity", y="artist_followers", 
-                             color="popular", title="Chart 4: Followers vs Artist Popularity",
-                             color_discrete_sequence=['#191414', '#1DB954'])
+            # --- CHART 4: Scatter Plot (Updated Background) ---
+            fig4 = px.scatter(
+                df.sample(min(1000, len(df))), 
+                x="artist_popularity", 
+                y="artist_followers", 
+                color="popular", 
+                title="<b>Chart 4: Followers vs Artist Popularity</b>",
+                color_discrete_sequence=['#1DB954', '#191414'],
+                template="plotly_white" # Built-in white template
+            )
+            
+            fig4.update_layout(
+                paper_bgcolor="white",
+                plot_bgcolor="white",
+                font_color="black"
+            )
             st.plotly_chart(fig4, use_container_width=True)
-
+            
 elif selected == "About":
     st.title("ℹ️ About")
     st.write("This application was built using Streamlit and Scikit-Learn to visualize Spotify metadata and predict commercial success.")
