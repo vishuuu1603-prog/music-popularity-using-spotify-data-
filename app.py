@@ -1,166 +1,127 @@
 import streamlit as st
 import pandas as pd
+import numpy as np
 import pickle
+import plotly.express as px
 
-# ===============================
-# PAGE CONFIG
-# ===============================
-st.set_page_config(
-    page_title="Spotify Popularity Predictor",
-    layout="wide"
-)
+# --- PAGE CONFIG ---
+st.set_page_config(page_title="Spotify Popularity Predictor", layout="wide")
 
-# ===============================
-# STYLE
-# ===============================
-st.markdown("""
-<style>
-body {
-    background-color: white;
-}
-.card {
-    background: white;
-    border-radius: 16px;
-    padding: 30px;
-    box-shadow: 0 12px 30px rgba(0,0,0,0.15);
-    margin-bottom: 25px;
-}
-h1, h2 {
-    color: #1DB954;
-}
-</style>
-""", unsafe_allow_html=True)
+# --- LOAD MODEL ---
+@st.cache_resource
+def load_model():
+    with open("model_pipeline.pkl", "rb") as f:
+        return pickle.load(f)
 
-# ===============================
-# LOAD MODEL
-# ===============================
-with open("model_pipeline.pkl", "rb") as f:
-    saved = pickle.load(f)
+try:
+    saved_pipeline = load_model()
+    model = saved_pipeline["model"]
+    scaler = saved_pipeline["scaler"]
+    feature_names = saved_pipeline["features"]
+    threshold = saved_pipeline.get("threshold", 0.5)
+except FileNotFoundError:
+    st.error("Model file 'model_pipeline.pkl' not found. Please run the training script first.")
+    st.stop()
 
-model = saved["model"]
-scaler = saved["scaler"]
-features = saved["features"]
-default_threshold = saved["threshold"]
+# --- LOAD DATA FOR ANALYSIS ---
+@st.cache_data
+def load_data():
+    return pd.read_csv("spotify_preprocessed_dataset.csv")
 
-# ===============================
-# NAVIGATION
-# ===============================
-page = st.sidebar.radio(
-    "Navigation",
-    ["Home", "Use Cases", "Prediction", "About"]
-)
+df = load_data()
 
-# ===============================
-# HOME
-# ===============================
-if page == "Home":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("🎵 Spotify Song Popularity Prediction")
-    st.write("""
-    A machine‑learning system that predicts whether a song is likely to become
-    **popular** based on Spotify audio and metadata features.
+# --- SIDEBAR NAVIGATION ---
+st.sidebar.title("Navigation")
+page = st.sidebar.radio("Go to", ["Dashboard & Analysis", "Song Popularity Predictor"])
 
-    Predictions are **probability‑based**, not rule‑based.
-    """)
-    st.markdown("</div>", unsafe_allow_html=True)
+# ==========================================
+# PAGE 1: DASHBOARD & ANALYSIS
+# ==========================================
+if page == "Dashboard & Analysis":
+    st.title("🎵 Spotify Dataset Analysis")
+    
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Total Tracks", len(df))
+    col2.metric("Popular Tracks", df['popular'].sum())
+    col3.metric("Avg Artist Popularity", round(df['artist_popularity'].mean(), 2))
 
-# ===============================
-# USE CASES
-# ===============================
-elif page == "Use Cases":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("📌 Applications")
-    st.markdown("""
-    • Song hit‑potential analysis  
-    • Artist release strategy  
-    • Music analytics platforms  
-    • Record label A&R decisions  
-    • Academic ML demonstrations  
-    """)
-    st.markdown("</div>", unsafe_allow_html=True)
+    st.subheader("Data Overview")
+    st.dataframe(df.head(10))
 
-# ===============================
-# PREDICTION
-# ===============================
-elif page == "Prediction":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("🎯 Predict Song Popularity")
+    st.subheader("Visual Insights")
+    c1, c2 = st.columns(2)
+    
+    with c1:
+        fig1 = px.histogram(df, x="artist_popularity", color="popular", 
+                           title="Artist Popularity vs. Song Success",
+                           barmode="overlay", color_discrete_sequence=['#1DB954', '#191414'])
+        st.plotly_chart(fig1, use_container_width=True)
+        
+    with c2:
+        fig2 = px.box(df, x="popular", y="track_duration_min", 
+                     title="Duration Distribution by Popularity",
+                     color="popular", color_discrete_sequence=['#191414', '#1DB954'])
+        st.plotly_chart(fig2, use_container_width=True)
 
-    col1, col2 = st.columns(2)
+# ==========================================
+# PAGE 2: PREDICTOR
+# ==========================================
+else:
+    st.title("🔮 Predict Song Popularity")
+    st.write("Enter the details of a song below to see if it's likely to become **Popular**.")
 
-    with col1:
-        danceability = st.slider("Danceability", 0.0, 1.0, 0.2)
-        energy = st.slider("Energy", 0.0, 1.0, 0.2)
-        loudness = st.slider("Loudness", -60.0, 0.0, -40.0)
-        speechiness = st.slider("Speechiness", 0.0, 1.0, 0.05)
-        acousticness = st.slider("Acousticness", 0.0, 1.0, 0.8)
+    with st.form("prediction_form"):
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            artist_pop = st.slider("Artist Popularity", 0, 100, 50)
+            artist_foll = st.number_input("Artist Followers", min_value=0, value=100000, step=1000)
+            album_tracks = st.number_input("Total Tracks in Album", min_value=1, value=10)
+            track_num = st.number_input("Track Number", min_value=1, value=1)
+            
+        with col2:
+            duration = st.number_input("Track Duration (min)", min_value=0.1, value=3.5, step=0.1)
+            release_year = st.number_input("Release Year", min_value=1950, max_value=2025, value=2024)
+            album_type = st.selectbox("Album Type", ["album", "single"])
+            explicit = st.checkbox("Explicit Content")
 
-    with col2:
-        instrumentalness = st.slider("Instrumentalness", 0.0, 1.0, 0.7)
-        liveness = st.slider("Liveness", 0.0, 1.0, 0.2)
-        valence = st.slider("Valence", 0.0, 1.0, 0.2)
-        tempo = st.number_input("Tempo", 40.0, 250.0, 70.0)
-        duration_ms = st.number_input("Duration (ms)", 30000, 600000, 180000)
-        album_type = st.selectbox("Album Type", ["album", "single"])
-        explicit = st.selectbox("Explicit", ["No", "Yes"])
+        submit = st.form_submit_button("Analyze Song")
 
-    threshold = st.slider(
-        "Decision Threshold",
-        0.4, 0.8, 0.65,
-        help="Higher threshold → harder to be POPULAR"
-    )
-
-    if st.button("🚀 Predict"):
-        input_dict = {
-            "danceability": danceability,
-            "energy": energy,
-            "loudness": loudness,
-            "speechiness": speechiness,
-            "acousticness": acousticness,
-            "instrumentalness": instrumentalness,
-            "liveness": liveness,
-            "valence": valence,
-            "tempo": tempo,
-            "duration_ms": duration_ms,
-            "track_duration_min": duration_ms / 60000,
-            "album_type": 1 if album_type == "single" else 0,
-            "explicit": 1 if explicit == "Yes" else 0
-        }
-
-        df = pd.DataFrame([input_dict])
-
-        for f in features:
-            if f not in df.columns:
-                df[f] = 0
-
-        df = df[features]
-        X = scaler.transform(df)
-
-        prob = model.predict_proba(X)[0][1]
-        pred = prob >= threshold
-
-        st.subheader("📊 Result")
-        st.metric("Popularity Probability", f"{prob:.3f}")
-
-        if pred:
-            st.success("🔥 POPULAR")
+    if submit:
+        # 1. Prepare Input Data (Matching Training Order)
+        # Order: ['track_number', 'explicit', 'artist_popularity', 'artist_followers', 
+        #         'album_total_tracks', 'album_type', 'track_duration_min', 'album_release_year']
+        
+        input_data = pd.DataFrame([{
+            'track_number': track_num,
+            'explicit': 1 if explicit else 0,
+            'artist_popularity': artist_pop,
+            'artist_followers': artist_foll,
+            'album_total_tracks': album_tracks,
+            'album_type': 1 if album_type == "single" else 0,
+            'track_duration_min': duration,
+            'album_release_year': release_year
+        }])
+        
+        # Reorder columns to match the scaler/model expectations
+        input_data = input_data[feature_names]
+        
+        # 2. Scale
+        input_scaled = scaler.transform(input_data)
+        
+        # 3. Predict
+        prob = model.predict_proba(input_scaled)[0, 1]
+        is_popular = prob > threshold
+        
+        # 4. Display Result
+        st.divider()
+        if is_popular:
+            st.success(f"### Result: POPULAR! 🚀")
+            st.write(f"Confidence Score: {prob:.2f} (Threshold: {threshold})")
+            st.balloons()
         else:
-            st.warning("❄️ NOT POPULAR")
+            st.error(f"### Result: NOT POPULAR 📉")
+            st.write(f"Confidence Score: {prob:.2f} (Threshold: {threshold})")
 
-        st.caption(f"Rule: probability ≥ {threshold}")
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# ===============================
-# ABOUT
-# ===============================
-elif page == "About":
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.title("ℹ️ About")
-    st.write("""
-    Built using Logistic Regression with feature scaling and
-    probability‑based decision thresholds.
-
-    Designed for **real‑world ML understanding**, not gimmicks.
-    """)
-    st.markdown("</div>", unsafe_allow_html=True)
+        # Feature Importance Hint
+        st.info("**Tip:** Artist Popularity and Followers are usually the strongest predictors in this model.")
