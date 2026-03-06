@@ -17,18 +17,24 @@ st.set_page_config(page_title="Spotify Analyst", layout="wide")
 # --- CUSTOM CSS FOR WHITE BACKGROUND ---
 st.markdown("""
     <style>
-    .main {
+    .stApp {
         background-color: #FFFFFF;
-        color: #000000;
+    }
+    h1, h2, h3, p, span {
+        color: #000000 !important;
     }
     .stMetric {
-        background-color: #f8f9fa;
+        background-color: #fcfcfc;
         padding: 15px;
         border-radius: 10px;
         border: 1px solid #eeeeee;
     }
+    div[data-testid="stForm"] {
+        background-color: #ffffff;
+        border: 1px solid #dddddd;
+    }
     </style>
-    """, unsafe_allow_密=True)
+    """, unsafe_allow_html=True) # FIXED THE PARAMETER NAME HERE
 
 # --- DATA & MODEL LOADING ---
 @st.cache_resource
@@ -63,36 +69,24 @@ selected = option_menu(
 if selected == "Home":
     st.title("🎵 Spotify Popularity Predictor")
     st.image("https://storage.googleapis.com/pr-newsroom-wp/1/2018/11/Spotify_Logo_RGB_Black.png", width=200)
-    st.subheader("Predicting the next big hit using Machine Learning.")
-    st.write("""
-    This application analyzes Spotify track features to determine the probability of a song becoming popular. 
-    By looking at artist followers, track duration, and release timing, we can uncover patterns in musical success.
-    """)
+    st.subheader("Leveraging Machine Learning to analyze musical success.")
+    st.write("Welcome! This tool uses data science to predict if a track will be popular based on Spotify features.")
 
 elif selected == "Meaning of Model":
-    st.title("🧠 What is this Model?")
+    st.title("🧠 What is Logistic Regression?")
+    st.write("Our app uses a Logistic Regression model to classify songs.")
     col1, col2 = st.columns(2)
     with col1:
-        st.markdown("### Logistic Regression")
-        st.write("""
-        We use **Logistic Regression**, a classification algorithm that predicts the probability of an event.
-        - **Input:** Spotify metadata (Artist info, Album tracks, etc.)
-        - **Output:** A probability between 0 and 1.
-        """)
+        st.info("### The Concept")
+        st.write("Logistic regression estimates the probability of an event occurring (like a song being popular) based on a given dataset of independent variables.")
     with col2:
-        st.markdown("### The Threshold (0.40)")
-        st.write("""
-        Since popular songs are rarer than non-popular ones, we use a custom threshold. 
-        If the model is at least **40% confident**, we classify it as a potential hit.
-        """)
+        st.success("### The Threshold")
+        st.write("We use a probability threshold of **0.40**. If the model is 40% sure a song is a hit, we classify it as 'Popular'.")
 
 elif selected == "Use of Model":
-    st.title("🔮 Predict Song Success")
+    st.title("🔮 Prediction Engine")
     if pipeline:
-        model = pipeline["model"]
-        scaler = pipeline["scaler"]
         features = pipeline["features"]
-        
         with st.form("predict_form"):
             c1, c2 = st.columns(2)
             with c1:
@@ -106,7 +100,7 @@ elif selected == "Use of Model":
                 is_explicit = st.checkbox("Explicit?")
                 is_single = st.selectbox("Type", ["single", "album"])
             
-            if st.form_submit_button("Predict Popularity"):
+            if st.form_submit_button("Run Analysis"):
                 input_data = pd.DataFrame([{
                     'track_number': track_num, 'explicit': 1 if is_explicit else 0,
                     'artist_popularity': artist_pop, 'artist_followers': followers,
@@ -114,63 +108,48 @@ elif selected == "Use of Model":
                     'track_duration_min': duration, 'album_release_year': year
                 }])[features]
                 
-                prob = model.predict_proba(scaler.transform(input_data))[0, 1]
+                prob = pipeline["model"].predict_proba(pipeline["scaler"].transform(input_data))[0, 1]
                 if prob >= 0.40:
-                    st.success(f"🔥 **Likely Popular!** Score: {prob:.2f}")
+                    st.success(f"🔥 **Result: Popular!** (Probability: {prob:.2f})")
                     st.balloons()
                 else:
-                    st.error(f"📉 **Unlikely to Trend.** Score: {prob:.2f}")
+                    st.error(f"📉 **Result: Not Popular.** (Probability: {prob:.2f})")
     else:
-        st.warning("Please upload model_pipeline.pkl")
+        st.warning("Model file not detected.")
 
 elif selected == "Analysis":
-    st.title("📈 Deep Feature Analysis")
+    st.title("📈 Feature Insights")
     if df is not None:
         col1, col2 = st.columns(2)
         with col1:
-            # CHART 1: Duration Distribution
+            # CHART 1: Duration Histogram
             fig1 = px.histogram(df, x="track_duration_min", color="popular", 
-                               title="Song Duration vs. Popularity",
-                               color_discrete_sequence=['#000000', '#1DB954'], barmode="overlay")
+                               title="Chart 1: Track Duration vs Popularity",
+                               color_discrete_sequence=['#191414', '#1DB954'])
             st.plotly_chart(fig1, use_container_width=True)
-        
         with col2:
-            # CHART 2: Explicit Content Impact
-            fig2 = px.bar(df.groupby(['explicit', 'popular']).size().reset_index(name='count'), 
-                         x="explicit", y="count", color="popular", 
-                         title="Impact of Explicit Lyrics", barmode="group",
-                         color_discrete_sequence=['#000000', '#1DB954'])
+            # CHART 2: Explicit Box Plot
+            fig2 = px.box(df, x="popular", y="artist_popularity", color="popular",
+                         title="Chart 2: Artist Popularity Distribution",
+                         color_discrete_sequence=['#191414', '#1DB954'])
             st.plotly_chart(fig2, use_container_width=True)
 
 elif selected == "Dashboard":
-    st.title("📊 Global Dataset Dashboard")
+    st.title("📊 Global Dashboard")
     if df is not None:
-        # Metrics
-        m1, m2, m3 = st.columns(3)
-        m1.metric("Tracks in Database", len(df))
-        m2.metric("Artist Avg Popularity", f"{df['artist_popularity'].mean():.1f}")
-        m3.metric("Popularity %", f"{(df['popular'].mean()*100):.1f}%")
-
         col1, col2 = st.columns(2)
         with col1:
-            # CHART 3: Popularity Pie Chart
-            fig3 = px.pie(df, names='popular', title="Dataset Popularity Split",
-                         hole=0.4, color_discrete_sequence=['#000000', '#1DB954'])
+            # CHART 3: Pie Chart
+            fig3 = px.pie(df, names='popular', title="Chart 3: Dataset Popularity Split",
+                         color_discrete_sequence=['#191414', '#1DB954'], hole=0.5)
             st.plotly_chart(fig3, use_container_width=True)
-        
         with col2:
             # CHART 4: Scatter Plot
-            fig4 = px.scatter(df.sample(800), x="artist_popularity", y="artist_followers", 
-                             color="popular", size="track_duration_min",
-                             title="Artist Influence vs. Follower Count",
-                             color_discrete_sequence=['#000000', '#1DB954'])
+            fig4 = px.scatter(df.sample(1000), x="artist_popularity", y="artist_followers", 
+                             color="popular", title="Chart 4: Followers vs Artist Popularity",
+                             color_discrete_sequence=['#191414', '#1DB954'])
             st.plotly_chart(fig4, use_container_width=True)
 
 elif selected == "About":
-    st.title("ℹ️ Project Information")
-    st.write("""
-    **Developer:** AI Music Analytics Team  
-    **Framework:** Streamlit, Scikit-Learn, Plotly  
-    **Data Source:** Spotify API Preprocessed Dataset  
-    This tool is designed for labels and independent artists to test their release strategies.
-    """)
+    st.title("ℹ️ About")
+    st.write("This application was built using Streamlit and Scikit-Learn to visualize Spotify metadata and predict commercial success.")
